@@ -23,3 +23,13 @@ Profile type choice after verified registration; business dropdown with Other op
 
 ## Release gates
 Design-only preview is not a verified connection. Integration tests: account-type isolation, email uniqueness, duplicate company, private discovery, unauthorized admin role, pending access denial, verification replay, session cross-type access, and audit.
+
+## Confirmed product-owner decision: mandatory email separation (2026-10-27)
+A person using both Personal and Business must register TWO different verified email addresses. A single email must not be associated with both account types, including through alternate login methods. This is a required security control, not a user preference or optional setting.
+
+- Enforce unique canonical verified email per account and permanently bind each account to its selected Personal or Business type. Reject cross-type registration with the same email without disclosing unnecessary account details to unauthenticated requesters.
+- Independent passwords/passkeys, MFA enrollment and recovery, sessions, permissions, tenant-scoped data, and Copilot context. No in-app cross-type toggle, account linking, shared tokens or implicit cross-environment access.
+- Users who operate both types sign out and sign in with the other email/account. A business account's company membership remains subject to verified affiliation and approval.
+- Email change requires proof of control of the replacement address, recent reauthentication or step-up MFA, uniqueness checks, session rotation/revocation and an auditable notification to the prior address where appropriate.
+- Apply email normalization carefully (case handling and provider-specific alias conventions); do not assume plus-address aliases guarantee independent security identities. Document policy for aliases and identity providers before launch.
+- Test same-email cross-type rejection, alias edge cases, social-login collisions, independent MFA/recovery, session isolation, and account email changes.
