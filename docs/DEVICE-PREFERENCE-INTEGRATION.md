@@ -27,3 +27,11 @@ This is a requirement specification, not evidence of implementation.
 - Essential accessibility standards (semantic labels, keyboard access, readable contrast, screen-reader compatibility) remain present for everyone, even if optional accessibility assistance is off.
 - Browser/platform permission requirements still apply; an in-app toggle does not grant microphone permission.
 - On reopening the app, restore the saved setting but do not silently begin microphone capture without an appropriate user-initiated permission/activation flow.
+
+## Hands-free wake word — owner-approved requirement
+- While PIRA is open, active, and the user has enabled voice accessibility in Settings, provide hands-free wake-word recognition for “PIRA” (pronounced “Peer-Ra”) without requiring a microphone button press for each command.
+- After wake-word detection, accept natural follow-on conditional requests including “what/what's”, “can you”, “is there”, “when”, “how”, and “where”.
+- Show visible listening and processing indicators, offer a mute/pause control and transcript review, and confirm state-changing actions.
+- Stop listening when the app is backgrounded, closed, or the feature is disabled; do not listen outside the active app.
+- Hands-free detection requires user microphone consent and a suitable on-device or native speech implementation. Browser limitations mean a pure web prototype may not guarantee continuous wake-word operation, particularly on iOS. Do not claim production support until tested on supported devices.
+- Prefer on-device wake-word detection and avoid storing raw audio by default.
