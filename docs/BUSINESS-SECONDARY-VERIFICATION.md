@@ -16,3 +16,11 @@ Rate-limit verification attempts and resends; expire and invalidate codes after 
 
 ## Open design decision
 Clarify whether PIRA sends the challenge to a designated company verifier, or whether an organization-initiated code is entered by the applicant. Default security design is PIRA-issued challenge to an independently verified authorized representative with a server-side approval record.
+
+## Confirmed expiration policy (2026-10-27)
+- Business connection verification request has a fixed 72-hour (three-day) window from its server-recorded issuance timestamp, not three calendar-day midnights.
+- During the window, status is pending and no protected business access is granted. Applicant may contact the organization's independently verified customer-service or administrative channel to arrange approval.
+- Display remaining time and absolute expiry in the applicant's local timezone; use server time for enforcement.
+- If no valid authorized approval occurs by the deadline, mark request expired and deny connection. Expired challenges cannot be accepted or replayed. A fresh request must be initiated, subject to rate limits and anti-abuse policy; a resend must not silently reset the original deadline.
+- Separate the 72-hour organization approval window from short-lived one-time email verification codes: issue/reissue short-lived codes within the active window, without extending it. This prevents a three-day bearer code from becoming a long-lived credential.
+- Record issuance, reminders, attempts, approval, expiry and denial in an audit log. Handle approval/expiry races atomically on the server.
