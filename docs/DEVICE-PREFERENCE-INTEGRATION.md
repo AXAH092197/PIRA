@@ -19,3 +19,11 @@ PIRA should automatically follow supported device/browser settings instead of fo
 Verify with iOS Safari and Android browsers, including dynamic type/zoom, VoiceOver/TalkBack, dark mode, reduced motion, microphone denial, and unsupported recognition APIs.
 
 This is a requirement specification, not evidence of implementation.
+
+## Accessibility activation and app lifecycle — owner clarification
+- PIRA accessibility assistance and optional voice listening are enabled through PIRA Settings, not automatically activated merely because the device supports them.
+- Optional PIRA accessibility enhancements operate only while the PIRA application is open and active. Stop speech listening when the app closes, is backgrounded, or becomes inactive; do not attempt background monitoring.
+- When accessibility is enabled, use the device's supported preferences as defaults. Allow users to disable optional enhancements independently.
+- Essential accessibility standards (semantic labels, keyboard access, readable contrast, screen-reader compatibility) remain present for everyone, even if optional accessibility assistance is off.
+- Browser/platform permission requirements still apply; an in-app toggle does not grant microphone permission.
+- On reopening the app, restore the saved setting but do not silently begin microphone capture without an appropriate user-initiated permission/activation flow.
