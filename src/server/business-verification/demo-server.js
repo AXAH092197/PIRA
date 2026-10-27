@@ -35,7 +35,7 @@ const server=http.createServer(async(req,res)=>{
    const html=await readFile(fileURLToPath(new URL("./demo.html",import.meta.url)));
    res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store","content-security-policy":"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'","x-content-type-options":"nosniff"});res.end(html);return;
   }
-  if(req.method==="POST"&&url.pathname==="/demo/request"){
+  if(req.method==="GET"&&url.pathname==="/demo.js"){const js=await readFile(fileURLToPath(new URL("./demo.js",import.meta.url)));res.writeHead(200,{"content-type":"text/javascript; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(js);return;}\n  if(req.method==="POST"&&url.pathname==="/demo/request"){
    const r=await service.start({id:randomUUID(),accountId:demoAccount,businessId:demoBusiness,requestedRole:"employee"});
    return send(res,201,{id:r.id,status:r.status,issuedAt:r.issuedAt,expiresAt:r.expiresAt});
   }
