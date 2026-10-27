@@ -20,3 +20,13 @@ Examples: “PIRA, what's low on stock?”; “PIRA, can you show my inventory?�
 
 ## Prototype scope
 Tap-to-listen browser speech recognition may demonstrate the grammar where supported. It is not continuous background wake-word detection or production-grade voice authentication.
+
+## Deaf and hard-of-hearing accessibility — approved
+- Copilot text input is permanently available regardless of voice accessibility settings, microphone access, audio output or device capability.
+- Typed and spoken requests route to the same intent, authorization and business data visualization workflows.
+- All answers, errors, confirmations, and status changes have visible text equivalents. No audio-only instructions or feedback.
+- Show optional speech transcripts and let users correct recognition errors before submission.
+- Offer text-only and combined text/voice modes; never force speech output.
+- Support device dictation, keyboard, screen readers, text resizing, captions for any instructional media, and clear visual listening indicators.
+- Keep non-modal chart/table panels accessible through keyboard and screen readers, including textual data alternatives.
+- Test with audio disabled, microphone denied, hearing accessibility settings enabled, and mobile screen reader navigation.
