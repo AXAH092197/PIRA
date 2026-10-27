@@ -26,3 +26,6 @@ Product owner specifies at least one uppercase letter and at least one special c
 
 ## Acceptance
 Test major providers and custom business domains, invalid/missing MX without false assurance, expired/reused tokens, domain email changes, cross-type email collision, brute force, common-password rejection, Unicode handling and password-manager compatibility.
+
+## Confirmed sequence semantics (2026-10-27)
+Reject any 3+ identical adjacent characters (aaa, 111, !!!), any 3+ alphabetically consecutive ascending or descending letters (abc, cba, mno, zyx), and any 3+ numerically consecutive ascending or descending digits (123, 321, 987). Reject repeated words or character groups three times consecutively (CatCatCat, AbAbAb). Nonconsecutive combinations such as abd and 729 remain eligible under sequence rules. Apply across the entire password, case-insensitively for alphabetic sequence detection. Maintain at least one uppercase and one special character. Minimum 12 characters remains proposed rather than finally approved. Validate server-side and test edge cases, international characters and accidental rejection of long passphrases. Because rigid composition rules can reduce password usability, review against contemporary password-security standards before release, while preserving the product-owner decision.
