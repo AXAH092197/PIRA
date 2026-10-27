@@ -1,0 +1,1 @@
+{"name":"pira-development-security-prototype","private":true,"type":"module","scripts":{"test:device":"node --test tests/device-posture.test.mjs"}}
