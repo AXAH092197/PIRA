@@ -7,7 +7,7 @@
 <section class="card" aria-labelledby="cal-title"><span class="badge">External · Read-only</span><h2 id="cal-title">Google Calendar</h2><p class="muted">Read upcoming events from your primary Google Calendar using Google's consent prompt. Access is temporary and kept in memory; PIRA does not store your Google access token or change events.</p><div class="actions"><button class="btn" id="google-connect">Connect Google Calendar</button><button class="btn alt" id="google-refresh" disabled>Refresh events</button><button class="btn danger" id="google-disconnect" disabled>Disconnect</button></div><p class="muted" id="google-status" role="status">Not connected.</p></section>
 <section class="card" aria-labelledby="import-title"><span class="badge">Inbound · Local file</span><h2 id="import-title">Calendar file (.ics)</h2><p class="muted">Import a calendar export from your device without linking an external account. Imported events appear here only during this page session; they are not uploaded to Supabase.</p><div class="actions"><label for="ics-file" class="btn alt" style="cursor:pointer">Choose .ics file</label><input type="file" accept=".ics,text/calendar" id="ics-file" class="hidden"><button class="btn danger" id="ics-clear">Clear imported events</button></div><p class="muted" id="ics-status" role="status">No file selected.</p></section>
 <section class="card" aria-labelledby="weather-title"><span class="badge">External · Live public data</span><h2 id="weather-title">Live weather</h2><p class="muted">Use the location you approve through your browser to retrieve current conditions from Open-Meteo. Location is sent to Open-Meteo only after you select “Allow location &amp; check weather.”</p><div class="actions"><button class="btn" id="weather-get">Allow location &amp; check weather</button><button class="btn alt" id="weather-refresh" disabled>Refresh</button><button class="btn danger" id="weather-clear">Disconnect</button></div><p class="muted" id="weather-status" role="status">Location not requested.</p><small class="muted">Weather: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Free public API for noncommercial use; commercial licensing requires review.</small></section>
-<section class="card" aria-labelledby="internal-title"><span class="badge">Internal · Signed-in workspace</span><h2 id="internal-title">PIRA reminders</h2><p class="muted">Built-in reminders can appear alongside imported or linked calendar events. They are read from your own Supabase workspace, subject to database access policies.</p><div class="actions"><button class="btn alt" id="reminder-refresh">Refresh my reminders</button><a href="./app.html" class="btn alt" style="text-decoration:none">Edit in PIRA</a></div><p class="muted" id="reminder-status" role="status">Not loaded yet.</p></section>
+<section class="card" aria-labelledby="internal-title"><span class="badge">Internal · Signed-in workspace</span><h2 id="internal-title">PIRA reminders</h2><p class="muted">Built-in reminders can appear alongside imported or linked calendar events. They are read from your own Supabase workspace, subject to database access policies.</p><div class="actions"><button class="btn alt" id="reminder-refresh">Refresh my reminders</button><button class="btn alt" id="reminder-export">Export reminders (.ics)</button><a href="./app.html" class="btn alt" style="text-decoration:none">Edit in PIRA</a></div><p class="muted" id="reminder-status" role="status">Not loaded yet.</p></section>
 </div>
 <div class="panel"><h2>Upcoming events and reminders</h2><p class="muted">Combined view: each entry shows its source. This page does not write events back to another service.</p><div id="events" aria-live="polite" class="muted">No events loaded.</div></div>
 </div>
@@ -59,6 +59,25 @@ async function refreshReminders(){
  renderEvents();
 }
 $('#reminder-refresh').onclick=()=>refreshReminders().catch(e=>status('#reminder-status',e.message,true));
+
+function exportRemindersICS(){
+ if(!reminderEvents.length){status('#reminder-status','No pending reminders to export.',true);return}
+ const escapeText=s=>String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+ const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//PIRA//Reminders Export//EN','CALSCALE:GREGORIAN'];
+ for(const e of reminderEvents){
+  const day=e.start.slice(0,10).replace(/-/g,'');
+  if(!/^\d{8}$/.test(day))continue;
+  lines.push('BEGIN:VEVENT','UID:'+crypto.randomUUID()+'@pira.local','DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+day,'SUMMARY:'+escapeText(e.title),'END:VEVENT');
+ }
+ lines.push('END:VCALENDAR');
+ const blob=new Blob([lines.join('\r\n')+'\r\n'],{type:'text/calendar;charset=utf-8'});
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='pira-reminders.ics';link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ status('#reminder-status','Downloaded reminder calendar file. No external calendar was modified.');
+}
+$('#reminder-export').onclick=exportRemindersICS;
+
 function waitForGoogle(){
  return new Promise((resolve,reject)=>{if(window.google?.accounts?.oauth2){resolve();return}
  let n=0;const timer=setInterval(()=>{if(window.google?.accounts?.oauth2){clearInterval(timer);resolve()}else if(++n>=30){clearInterval(timer);reject(Error('Google Identity Services did not load.'))}},200)});
