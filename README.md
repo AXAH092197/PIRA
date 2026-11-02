@@ -62,7 +62,7 @@ Ensure Data API privileges for RLS-secured tables: grant SELECT on profiles, wor
 
 ## Integrations center (milestone 3)
 
-Open `integrations.html` from the authenticated dashboard toolbar. Integrations are focused on calendar events and PIRA records. Weather, browser geolocation and the Open-Meteo dependency were removed at user request.
+Open **Settings** in `app.html` to access Connections & Calendar. The integration controls are embedded in the Settings screen from `integrations.html?embedded=1`, rather than appearing as separate top-level navigation. The standalone HTML file remains an internal implementation route. Integrations are focused on calendar events and PIRA records. Weather, browser geolocation and the Open-Meteo dependency were removed at user request.
 
 **Built-in integrations and boundaries**
 - Internal: reads pending PIRA reminders through signed-in Supabase membership and RLS. No extra credentials, no writes from integration hub.
