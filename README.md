@@ -62,12 +62,11 @@ Ensure Data API privileges for RLS-secured tables: grant SELECT on profiles, wor
 
 ## Integrations center (milestone 3)
 
-Open `integrations.html` from the authenticated dashboard toolbar.
+Open `integrations.html` from the authenticated dashboard toolbar. Integrations are focused on calendar events and PIRA records. Weather, browser geolocation and the Open-Meteo dependency were removed at user request.
 
 **Built-in integrations and boundaries**
 - Internal: reads pending PIRA reminders through signed-in Supabase membership and RLS. No extra credentials, no writes from integration hub.
 - Inbound: imports a user-selected `.ics` file to an ephemeral in-page events view (up to 1 MB / 500 events). Does not upload the file or persist imported events. Basic one-off dates only; no recurrence expansion or full timezone interpretation.
-- External: Open-Meteo current weather only after browser geolocation consent. Coordinates remain in page memory but are sent to Open-Meteo on demand. Free API is for **non-commercial** usage; review commercial licensing before monetizing PIRA.
 - External: Google Calendar **read-only** upcoming events through user-triggered Google Identity Services OAuth. To activate: create a Google Cloud project, enable the Calendar API, configure the OAuth consent screen, create a Web OAuth client with `https://axah092197.github.io` as an authorized JavaScript origin, and set `GOOGLE_CALENDAR_CLIENT_ID` in `integrations-config.js`. OAuth client IDs are public identifiers, not secret credentials. Without this setup the UI reports that Google Calendar is unavailable.
 - Google OAuth access tokens are kept in memory only. Users can disconnect and revoke the current token. Expiration requires a new user-driven consent request. Calendar data is not automatically synchronized across sessions.
 - The registry is a **fixed allowlist** of provider adapters, not a dynamic third-party plugin loader. No arbitrary external scripts, outbound customer data transfer, automated event writes, background polling, or webhook integration are supported. Future external plugin support requires reviewed manifests, provider authorization, granular scopes, sandboxing and server-side secret handling.
