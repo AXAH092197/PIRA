@@ -34,60 +34,81 @@ $('#add-item').onclick=()=>edit('item');$('#add-reminder').onclick=()=>edit('rem
 function exportCSV(type){const cols=type==='item'?['name','category','quantity','minimum','location','price']:['title','due','done'];const rows=type==='item'?items:reminders;const csv=[cols,...rows.map(r=>cols.map(c=>r[c]??''))].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='pira-personal-'+(type==='item'?'inventory':'reminders')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 $('#export-items').onclick=()=>exportCSV('item');$('#export-reminders').onclick=()=>exportCSV('reminder');$('#download-all').onclick=()=>{exportCSV('item');exportCSV('reminder')};
 // Local natural-language intent matching. No prompts or inventory content leave the browser for AI processing.
-const normalizeQuestion=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const normalizeQuestion=s=>String(s??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 const whole=(phrase,text)=>(' '+text+' ').includes(' '+phrase+' ');
+const copilotPhrases={
+ location:['where','where is','where are','where can i find','location','located','stored','kept','find'],
+ quantity:['how much','how many','quantity','quantities','units','pieces','remaining','left','in stock','stock level','how much do i have'],
+ availability:['is there','are there','do i have','do we have','have any','have some','available','in stock','can i find','is any','are any','check if','check whether'],
+ count:['count','count up','number of','tally','total number','how many','how much inventory','how many different'],
+ status:['check','check on','check whether','check if','status','inspect','verify','look up','look for','tell me about','what about'],
+ when:['when','what time','what day','what date','due','deadline','coming up','next reminder','scheduled'],
+ reminders:['remind','reminder','reminders','task','tasks','to do','todo','due','deadline','scheduled','schedule','upcoming','overdue','coming up'],
+ low:['low','running out','almost out','nearly out','short on','restock','reorder','replenish','below minimum','out of stock','need more'],
+ price:['price','priced','cost per','unit price','unit cost','each cost'],
+ value:['worth','value','valuation','total cost','total price','money tied up'],
+ list:['list','show','display','which','what items','what products','what do i have','what s in','whats in'],
+ recent:['recent','recently added','latest','newest','last added'],
+ category:['category','categories','types','groups','grouped']
+};
 function copilotReply(question){
  const q=normalizeQuestion(question);
- if(!q)return 'Type a question, for example: What am I running low on?';
- const intent=(...terms)=>terms.some(t=>whole(t,q));
- const sortedItems=[...items].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
- const stockLow=items.filter(x=>Number(x.quantity)<=Number(x.minimum));
- const quantity=rows=>rows.reduce((sum,x)=>sum+Number(x.quantity||0),0);
- const inventoryValue=rows=>rows.reduce((sum,x)=>sum+Number(x.quantity||0)*Number(x.price||0),0);
- const formatList=(rows,formatter)=>rows.slice(0,12).map(formatter).join('; ')+(rows.length>12?'; and '+(rows.length-12)+' more.':'');
- const relevant=items.filter(x=>{
-   const name=normalizeQuestion(x.name),category=normalizeQuestion(x.category),location=normalizeQuestion(x.location);
-   return (name&&whole(name,q))||(category&&whole(category,q))||(location&&whole(location,q));
- });
- const stockQuestion=intent('how much','how many','quantity','quantities','left','remaining','in stock','available','have','do we have','do i have','stock level','levels');
- const locationQuestion=intent('where','located','location','stored','find');
- const priceQuestion=intent('price','priced','cost per','unit price','unit cost');
- const valueQuestion=intent('worth','value','valuation','total cost','total price','money tied up');
- const lowQuestion=intent('low','running out','almost out','nearly out','short on','need restock','need to restock','reorder','replenish','below minimum','out of stock');
- const reminderQuestion=intent('reminder','reminders','task','tasks','due','deadline','schedule','scheduled','to do','todo','upcoming','overdue','coming up','what is next','what s next');
- const countQuestion=intent('how many','number of','count','total','amount of','how much','how much inventory','inventory size');
- const listQuestion=intent('list','show','display','which','what items','what products','tell me about','details');
- if(relevant.length){
-   if(locationQuestion)return formatList(relevant,x=>x.name+' is stored at '+(x.location||'an unspecified location'))+'.';
-   if(priceQuestion)return formatList(relevant,x=>x.name+': '+money(x.price)+' per unit')+'.';
-   if(valueQuestion)return 'Current estimated value of matching inventory: '+money(inventoryValue(relevant))+'.';
-   if(lowQuestion)return formatList(relevant,x=>x.name+': '+x.quantity+' left (minimum '+x.minimum+')'+(Number(x.quantity)<=Number(x.minimum)?' — low stock':' — above threshold'))+'.';
-   if(stockQuestion||countQuestion)return formatList(relevant,x=>x.name+': '+x.quantity+' unit(s) available')+'.';
-   return formatList(relevant,x=>x.name+' — '+x.quantity+' units, '+money(x.price)+' each'+(x.location?', at '+x.location:''))+'.';
+ if(!q)return 'Ask me something like “Where are my tools?”, “How much soap is left?”, “Is there any paper?”, or “Check my reminders.”';
+ const has=(...terms)=>terms.some(t=>whole(t,q));
+ const intent=key=>copilotPhrases[key].some(t=>whole(t,q));
+ const qty=rows=>rows.reduce((s,x)=>s+Number(x.quantity||0),0);
+ const value=rows=>rows.reduce((s,x)=>s+Number(x.quantity||0)*Number(x.price||0),0);
+ const format=(rows,fn)=>rows.slice(0,12).map(fn).join('; ')+(rows.length>12?'; and '+(rows.length-12)+' more':'');
+ const dateText=s=>s?new Date(s.length===10?s+'T12:00:00':s).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'date not recorded';
+ const today=new Date().toLocaleDateString('en-CA');
+ const pending=reminders.filter(x=>!x.done);
+ const low=items.filter(x=>Number(x.quantity)<=Number(x.minimum));
+ const namedReminder=reminders.filter(r=>{const title=normalizeQuestion(r.title);return title&&whole(title,q)});
+ // Requests to create a reminder must never be represented as successful without a database write.
+ if(has('remind me','set a reminder','create a reminder','add a reminder','schedule a reminder','notify me','alert me'))
+   return 'To create a reminder, open the Reminders tab and choose “New reminder.” I have not scheduled anything from this message.';
+ if(namedReminder.length&&intent('reminders')){
+   if(intent('when'))return format(namedReminder,r=>r.title+' is due '+dateText(r.due)+(r.done?' (completed)':''))+'.';
+   return format(namedReminder,r=>r.title+' — '+(r.done?'complete':'pending')+', due '+dateText(r.due))+'.';
  }
- if(reminderQuestion){
-   const pending=reminders.filter(x=>!x.done);
-   if(intent('overdue','past due','late')){
-     const today=new Date().toLocaleDateString('en-CA');
-     const overdue=pending.filter(x=>x.due<today);
-     return overdue.length?'Overdue reminders: '+formatList(overdue,x=>x.title+' (due '+x.due+')')+'.':'No overdue reminders.';
-   }
-   if(intent('how many','count','number','total'))return 'You have '+pending.length+' pending reminder(s) out of '+reminders.length+' total.';
-   return pending.length?'Pending reminders: '+formatList(pending,x=>x.title+' (due '+x.due+')')+'.':'No pending reminders.';
+ // Match exact item/category/location phrases, not short partial substrings.
+ const matched=items.filter(x=>[x.name,x.category,x.location].some(v=>{const term=normalizeQuestion(v);return term.length>1&&whole(term,q)}));
+ const availability=intent('availability');
+ const when=intent('when');
+ const count=intent('count');
+ const status=intent('status');
+ const summary=()=> 'You have '+items.length+' distinct inventory records and '+qty(items)+' total units.';
+ if(matched.length){
+   if(intent('location'))return format(matched,x=>x.name+' is '+(x.location?'stored at '+x.location:'missing a recorded location'))+'.';
+   if(intent('price'))return format(matched,x=>x.name+': '+money(x.price)+' per unit')+'.';
+   if(intent('value'))return 'Estimated matching inventory value: '+money(value(matched))+'.';
+   if(when||has('added','created','logged','recorded'))return format(matched,x=>x.name+' was logged '+dateText(x.created_at))+'. This is the record creation date, not a purchase or expiration date.';
+   if(intent('low'))return format(matched,x=>x.name+': '+x.quantity+' remaining (minimum '+x.minimum+')'+(Number(x.quantity)<=Number(x.minimum)?' — low stock':' — above threshold'))+'.';
+   if(availability)return format(matched,x=>x.name+': '+(Number(x.quantity)>0?'yes, '+x.quantity+' available':'recorded, but none currently in stock'))+'.';
+   if(intent('quantity')||count)return format(matched,x=>x.name+': '+x.quantity+' unit(s) recorded')+'.';
+   return format(matched,x=>x.name+' — '+x.quantity+' units, '+money(x.price)+' each, '+(x.location||'no location assigned'))+'.';
  }
- if(lowQuestion)return stockLow.length?'Low-stock items: '+formatList(stockLow,x=>x.name+' ('+x.quantity+' remaining; minimum '+x.minimum+')')+'.':'All items are above their minimum stock thresholds.';
- if(valueQuestion)return 'Estimated total inventory value: '+money(inventoryValue(items))+'. This uses your recorded unit values.';
- if(intent('recent','recently added','latest','newest','last added'))return sortedItems.length?'Recently added: '+formatList(sortedItems.slice(0,5),x=>x.name+' ('+x.quantity+' units)')+'.':'No inventory items recorded yet.';
- if(intent('category','categories','types','groups','grouped')){
-   const categories=[...new Set(items.map(x=>x.category).filter(Boolean))];
-   return categories.length?'Your inventory categories are: '+categories.join(', ')+'.':'No categories have been assigned yet.';
+ // Distinguish reminders from generic "check" / "when" questions.
+ if(intent('reminders')||when&&has('next','coming up','on my calendar')){
+   const overdue=pending.filter(x=>x.due<today);
+   const dueToday=pending.filter(x=>x.due===today);
+   if(has('overdue','late','past due'))return overdue.length?'Overdue reminders: '+format(overdue,x=>x.title+' ('+dateText(x.due)+')')+'.':'No overdue reminders.';
+   if(has('today','this day'))return dueToday.length?'Due today: '+format(dueToday,x=>x.title)+'.':'No reminders due today.';
+   if(count)return 'You have '+pending.length+' pending reminders ('+reminders.length+' total).';
+   if(has('next','soonest','first','coming up','what s next','whats next')){const next=[...pending].sort((a,b)=>a.due.localeCompare(b.due))[0];return next?'Your next pending reminder is '+next.title+', due '+dateText(next.due)+'.':'You have no pending reminders.'}
+   return pending.length?'Pending reminders: '+format(pending,x=>x.title+' — '+dateText(x.due))+'.':'No pending reminders.';
  }
- if(intent('quantity','quantities','units','pieces')|| (countQuestion&&intent('units','stock','supplies')))return 'Total units across your inventory: '+quantity(items)+'.';
- if(countQuestion||intent('inventory','items','products','supplies','everything i own','what do i have')){
-   if(listQuestion&&!countQuestion)return items.length?'Inventory items: '+formatList(items,x=>x.name+' ('+x.quantity+' units)')+'.':'Your inventory is currently empty.';
-   return 'You have '+items.length+' distinct inventory records and '+quantity(items)+' total units.';
- }
- return 'I could not determine what you want to know. Try asking: “What am I running low on?”, “How many units do I have?”, “Where is [item name] stored?”, “What is my inventory worth?”, or “What reminders are due?”';
+ if(intent('low'))return low.length?'Low-stock items: '+format(low,x=>x.name+' ('+x.quantity+' remaining, minimum '+x.minimum+')')+'.':'All items are above their minimum stock thresholds.';
+ if(intent('value'))return 'Estimated total inventory value: '+money(value(items))+'. This uses recorded unit values.';
+ if(intent('recent')){const sorted=[...items].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));return sorted.length?'Recently added: '+format(sorted.slice(0,5),x=>x.name+' ('+x.quantity+' units, '+dateText(x.created_at)+')')+'.':'No inventory items recorded.'}
+ if(intent('category')){const cats=[...new Set(items.map(x=>x.category).filter(Boolean))];return cats.length?'Recorded categories: '+cats.join(', ')+'.':'No categories recorded.'}
+ if(intent('quantity')&& !count)return 'Total units across all inventory: '+qty(items)+'.';
+ if(count)return summary();
+ if(intent('list')||has('inventory','products','supplies','items','stock','what s','whats','what is','what'))return items.length?'Inventory: '+format(items,x=>x.name+' ('+x.quantity+' units)')+'.':'Your inventory is empty.';
+ if(availability)return 'I cannot confirm an unnamed item. Specify an item or category, for example “Is there any paper?”';
+ if(status)return 'Tell me which item, category, or reminder to check. For example, “Check cleaning supplies” or “Check overdue reminders.”';
+ if(when)return 'Ask when a particular item was recorded or when a reminder is due.';
+ return 'I could not identify the request. Try: “Where is [item]?”, “How much [item] is left?”, “Is there any [item]?”, “What’s in inventory?”, “Count my items”, or “Check my reminders.”';
 }
 $('#ask').onclick=()=>{$('#answer').textContent=copilotReply($('#question').value)};
 $('#question').onkeydown=e=>{if(e.key==='Enter')$('#ask').click()};
