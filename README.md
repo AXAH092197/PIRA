@@ -72,3 +72,17 @@ Open **Settings** in `app.html` to access Connections & Calendar. The integratio
 - The registry is a **fixed allowlist** of provider adapters, not a dynamic third-party plugin loader. No arbitrary external scripts, outbound customer data transfer, automated event writes, background polling, or webhook integration are supported. Future external plugin support requires reviewed manifests, provider authorization, granular scopes, sandboxing and server-side secret handling.
 
 **Privacy/security:** External integrations are independent of Supabase inventory access. Calendar consent does not grant inventory privileges. RLS must remain enforced. Integration UI reads only available data and does not claim to save reminders or calendar events. Validate Google OAuth consent screen and production requirements before public release.
+
+## Reminder engine (milestone 4)
+
+**Required database update:** Before opening the new dashboard, run `supabase/003_reminder_engine.sql` in the PIRA Supabase SQL Editor. This adds the `repeat_rule` and `due_time` columns and the `pira_complete_reminder` RPC. Existing reminder records are preserved with repeat_rule=`none`.
+
+New reminder functions:
+- Optional due time and daily/weekly/monthly/yearly repeats.
+- Complete a repeating reminder to advance it to its next scheduled occurrence (server-side transaction under existing RLS).
+- One-time reminders become completed, and completed one-time reminders can be reopened.
+- Snooze an outstanding reminder by one day.
+- All, due today, overdue, upcoming and completed reminder filters; in-app due summary.
+- Reminder CSV exports include recurrence and time.
+
+**Current limitations:** The in-app summary is visible when PIRA is open; automatic browser push, email delivery, app-closed background notifications, service workers, and notification scheduling are NOT implemented. The optional time is displayed but no timed push fires yet. A repeat series currently advances its single due-date row and does not retain each completion occurrence as an audit history. Month-end schedules use PostgreSQL's month arithmetic and should be tested with real dates. Multiple devices rely on manual refresh (no live subscription).
