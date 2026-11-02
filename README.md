@@ -50,3 +50,12 @@ In GitHub, visit **Settings → Pages**, select **Deploy from a branch**, choose
 **Security boundary:** `auth.html` handles actual Supabase registration/sign-in only after configuration. The original `index.html` still runs as a **legacy, local-only prototype** and is NOT protected by Supabase. Do not put sensitive data there. Business registration/verification, account-to-inventory sync, and admin controls have not been implemented. Password complexity checks in the registration UI are supplemental client-side checks, not server-side enforcement; enforce password policies in Supabase Auth settings / trusted backend before production. Supabase's email sending limits may apply.
 
 Ensure Data API privileges for RLS-secured tables: grant SELECT on profiles, workspaces, memberships and SELECT/INSERT/UPDATE/DELETE on inventory_items and reminders to authenticated, then test under RLS. Do not grant workspace/membership write permissions to browser roles.
+
+## Authenticated Personal dashboard (milestone 2)
+
+- Open `auth.html` to sign in, then follow **Open Personal Workspace** to `app.html`.
+- `app.html` reads the authenticated Supabase session and finds the authorized Personal workspace through `memberships` + `workspaces`.
+- Inventory and reminders are loaded from Supabase, with create/edit/delete, low-stock metrics, category search, CSV export, and local rule-based Copilot.
+- **Run migrations 001 and 002 first.** Supabase enforces access using table grants and workspace Row Level Security. This new page does not store records in browser localStorage.
+- `index.html` remains a separate legacy local demo. There is **no migration of existing local records** into Supabase and Business workflow is not yet integrated.
+- Do not expose service-role or secret keys. Test with two distinct accounts before real use. Publishing the dashboard is not proof of completed authorization or penetration testing.
