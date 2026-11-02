@@ -2,6 +2,10 @@
 
 A responsive browser prototype for managing separate Personal and Business workspaces.
 
+## PIRA website
+
+Open `welcome.html` for the public-facing responsive product website. It links to the interactive prototype in `index.html`. The preview metrics on the website are illustrative and not user data.
+
 ## Run locally
 
 Open `index.html` in a modern browser. No installation or build step is required.
