@@ -1,0 +1,132 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PIRA | Integrations</title>
+<style>:root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#193652;background:#f2f6fa}*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #4da8e2;outline-offset:3px}a{color:#166eac}.wrap{max-width:1070px;margin:auto;padding:22px}.top{background:#132f4f;color:white;padding:19px 0}.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:0;padding-bottom:0}.brand{font-size:26px;font-weight:900;letter-spacing:.13em}.brand small{font-size:11px;display:block;letter-spacing:0;color:#c2d9ed;font-weight:400}.top a{color:#cbe8ff}.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#397caa;font-weight:800}.intro{margin:30px 0}.intro h1{font-size:clamp(29px,4vw,43px);margin:8px 0}.muted{color:#6b8298;font-size:14px;line-height:1.7}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{background:white;border:1px solid #dfebf4;border-radius:16px;padding:24px;box-shadow:0 7px 27px #204b6b0c}.card h2{margin:0 0 8px;font-size:22px}.badge{display:inline-block;font-size:11px;background:#e9f2fb;border-radius:30px;padding:6px 9px;color:#175b8b}.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:17px}.btn{padding:10px 15px;background:#1871a9;color:white;border:0;border-radius:9px;font-weight:700}.btn.alt{background:#e6f1f8;color:#185f8e}.btn.danger{background:#ffeae9;color:#9b4141}.field{border:1px solid #c6d6e6;border-radius:8px;padding:11px;max-width:100%}.panel{padding:20px;background:white;border:1px solid #e0e9f2;border-radius:14px;margin:18px 0}.event{padding:13px 0;border-bottom:1px solid #e8eef5}.event:last-child{border:0}.event strong{display:block}.event small{color:#6a8498}.error{color:#aa3939}.success{color:#166d46}.notice{background:#fff4df;color:#775821;border-radius:11px;padding:14px;margin-top:18px;font-size:13px;line-height:1.7}.hidden{display:none}.foot{font-size:12px;color:#78899b;margin:30px 0}@media(max-width:730px){.grid{grid-template-columns:1fr}.wrap{padding:16px}.card{padding:19px}}</style></head>
+<body><header class="top"><div class="wrap"><div class="brand">PIRA<small>Permission-based integrations</small></div><a href="./app.html">← Personal Workspace</a></div></header>
+<main class="wrap"><div class="intro"><div class="eyebrow">Integration center · early access</div><h1>Connect services your way.</h1><p class="muted">Choose what PIRA can read. Calendar access and location requests are opt-in. Connections never grant unrelated plugins access to your inventory. PIRA does not install third-party scripts from arbitrary URLs.</p></div>
+<div id="auth-status" class="notice" role="status">Checking your PIRA session…</div>
+<div id="integrations" class="hidden"><div class="grid">
+<section class="card" aria-labelledby="cal-title"><span class="badge">External · Read-only</span><h2 id="cal-title">Google Calendar</h2><p class="muted">Read upcoming events from your primary Google Calendar using Google's consent prompt. Access is temporary and kept in memory; PIRA does not store your Google access token or change events.</p><div class="actions"><button class="btn" id="google-connect">Connect Google Calendar</button><button class="btn alt" id="google-refresh" disabled>Refresh events</button><button class="btn danger" id="google-disconnect" disabled>Disconnect</button></div><p class="muted" id="google-status" role="status">Not connected.</p></section>
+<section class="card" aria-labelledby="import-title"><span class="badge">Inbound · Local file</span><h2 id="import-title">Calendar file (.ics)</h2><p class="muted">Import a calendar export from your device without linking an external account. Imported events appear here only during this page session; they are not uploaded to Supabase.</p><div class="actions"><label for="ics-file" class="btn alt" style="cursor:pointer">Choose .ics file</label><input type="file" accept=".ics,text/calendar" id="ics-file" class="hidden"><button class="btn danger" id="ics-clear">Clear imported events</button></div><p class="muted" id="ics-status" role="status">No file selected.</p></section>
+<section class="card" aria-labelledby="weather-title"><span class="badge">External · Live public data</span><h2 id="weather-title">Live weather</h2><p class="muted">Use the location you approve through your browser to retrieve current conditions from Open-Meteo. Location is sent to Open-Meteo only after you select “Allow location &amp; check weather.”</p><div class="actions"><button class="btn" id="weather-get">Allow location &amp; check weather</button><button class="btn alt" id="weather-refresh" disabled>Refresh</button><button class="btn danger" id="weather-clear">Disconnect</button></div><p class="muted" id="weather-status" role="status">Location not requested.</p><small class="muted">Weather: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Free public API for noncommercial use; commercial licensing requires review.</small></section>
+<section class="card" aria-labelledby="internal-title"><span class="badge">Internal · Signed-in workspace</span><h2 id="internal-title">PIRA reminders</h2><p class="muted">Built-in reminders can appear alongside imported or linked calendar events. They are read from your own Supabase workspace, subject to database access policies.</p><div class="actions"><button class="btn alt" id="reminder-refresh">Refresh my reminders</button><a href="./app.html" class="btn alt" style="text-decoration:none">Edit in PIRA</a></div><p class="muted" id="reminder-status" role="status">Not loaded yet.</p></section>
+</div>
+<div class="panel"><h2>Upcoming events and reminders</h2><p class="muted">Combined view: each entry shows its source. This page does not write events back to another service.</p><div id="events" aria-live="polite" class="muted">No events loaded.</div></div>
+</div>
+<div class="notice"><strong>Security boundaries:</strong> PIRA supports a fixed allowlist of reviewed integrations. External inbound plugin code and outbound third-party inventory sharing are not enabled. Google Calendar requires a separately configured Google Cloud OAuth client ID, authorized website origin, enabled Calendar API, and consent configuration. Browser permission does not authorize calendar access automatically. OAuth access is read-only.</div>
+<div class="foot">PIRA Integrations beta · User-controlled connections · No automatic background monitoring</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="module">
+import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './supabase-config.js';
+import {GOOGLE_CALENDAR_CLIENT_ID} from './integrations-config.js';
+const $=s=>document.querySelector(s);
+const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const plugins=Object.freeze({
+  google:{id:'google-calendar',kind:'external',scopes:['calendar.events.readonly'],canWrite:false},
+  ics:{id:'ics-import',kind:'inbound',scopes:['local-file-read'],canWrite:false},
+  weather:{id:'weather',kind:'external',scopes:['geolocation-on-demand'],canWrite:false},
+  reminders:{id:'pira-reminders',kind:'internal',scopes:['own-workspace-reminders'],canWrite:false}
+});
+let currentUser=null,workspaceId=null,googleToken=null,googleExpiry=0,coords=null;
+let googleEvents=[],importEvents=[],reminderEvents=[];
+const status=(selector,message,bad=false)=>{const el=$(selector);el.textContent=message;el.className=bad?'error':'muted'};
+const nowIso=()=>new Date().toISOString();
+const dateText=v=>{const d=new Date(v);return Number.isNaN(d.valueOf())?'Unknown date':d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})};
+function eventEntry(title,start,source){return {title:String(title||'Untitled event').slice(0,300),start:String(start||''),source}}
+function renderEvents(){
+ const events=[...googleEvents,...importEvents,...reminderEvents].filter(e=>e.start&&!Number.isNaN(new Date(e.start).valueOf())&&new Date(e.start)>=new Date(Date.now()-86400000)).sort((a,b)=>new Date(a.start)-new Date(b.start)).slice(0,50);
+ const container=$('#events');container.replaceChildren();
+ if(!events.length){container.textContent='No upcoming events or reminders have been loaded.';return}
+ for(const e of events){const line=document.createElement('div');line.className='event';const title=document.createElement('strong');title.textContent=e.title;const info=document.createElement('small');info.textContent=dateText(e.start)+' · '+e.source;line.append(title,info);container.append(line)}
+}
+async function getUser(){
+ const {data,error}=await client.auth.getUser();
+ if(error||!data.user){$('#auth-status').textContent='Sign in through PIRA before connecting integrations.';const a=document.createElement('a');a.href='./auth.html';a.textContent=' Sign in';$('#auth-status').append(a);return}
+ currentUser=data.user;
+ const m=await client.from('memberships').select('workspaces(id,kind)').eq('user_id',currentUser.id);
+ if(m.error)throw m.error;
+ const ws=(m.data||[]).find(x=>x.workspaces?.kind==='personal');
+ if(!ws)throw Error('No authorized Personal workspace.');
+ workspaceId=ws.workspaces.id;
+ $('#auth-status').textContent='Signed in to your Personal Workspace. Connections are optional.';
+ $('#integrations').classList.remove('hidden');
+ await refreshReminders();
+}
+async function refreshReminders(){
+ if(!workspaceId)return;
+ const {data,error}=await client.from('reminders').select('title,due,done').eq('workspace_id',workspaceId).eq('done',false).order('due',{ascending:true}).limit(100);
+ if(error){status('#reminder-status',error.message,true);return}
+ reminderEvents=(data||[]).map(x=>eventEntry(x.title,x.due+'T12:00:00','PIRA reminder'));
+ status('#reminder-status',reminderEvents.length+' pending reminders loaded.');
+ renderEvents();
+}
+$('#reminder-refresh').onclick=()=>refreshReminders().catch(e=>status('#reminder-status',e.message,true));
+function waitForGoogle(){
+ return new Promise((resolve,reject)=>{if(window.google?.accounts?.oauth2){resolve();return}
+ let n=0;const timer=setInterval(()=>{if(window.google?.accounts?.oauth2){clearInterval(timer);resolve()}else if(++n>=30){clearInterval(timer);reject(Error('Google Identity Services did not load.'))}},200)});
+}
+async function googleConnect(){
+ if(!GOOGLE_CALENDAR_CLIENT_ID){status('#google-status','Setup needed: configure the Google Cloud OAuth client ID in integrations-config.js.',true);return}
+ try{
+  await waitForGoogle();
+  const oauth=window.google.accounts.oauth2.initTokenClient({
+   client_id:GOOGLE_CALENDAR_CLIENT_ID,
+   scope:'https://www.googleapis.com/auth/calendar.events.readonly',
+   callback:async response=>{
+    if(!response?.access_token){status('#google-status',response?.error||'Google consent was not completed.',true);return}
+    googleToken=response.access_token;googleExpiry=Date.now()+Math.max(0,Number(response.expires_in||3500)-60)*1000;
+    $('#google-refresh').disabled=false;$('#google-disconnect').disabled=false;
+    await refreshGoogle();
+   }
+  });oauth.requestAccessToken({prompt:'consent'});
+ }catch(e){status('#google-status',e.message,true)}
+}
+async function refreshGoogle(){
+ if(!googleToken||Date.now()>=googleExpiry){status('#google-status','Calendar authorization expired. Select Connect to renew access.',true);googleToken=null;$('#google-refresh').disabled=true;return}
+ try{
+  const query=new URLSearchParams({timeMin:nowIso(),maxResults:'50',singleEvents:'true',orderBy:'startTime'});
+  const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?'+query,{headers:{Authorization:'Bearer '+googleToken}});
+  if(!res.ok)throw Error('Calendar request failed ('+res.status+'). Reconnect if authorization expired.');
+  const data=await res.json();
+  googleEvents=(data.items||[]).map(x=>eventEntry(x.summary,x.start?.dateTime||x.start?.date,'Google Calendar'));
+  status('#google-status',googleEvents.length+' upcoming Google events loaded. Read-only.');
+  renderEvents();
+ }catch(e){status('#google-status',e.message,true)}
+}
+function disconnectGoogle(){
+ const token=googleToken;googleToken=null;googleExpiry=0;googleEvents=[];$('#google-refresh').disabled=true;$('#google-disconnect').disabled=true;
+ if(token&&window.google?.accounts?.oauth2)window.google.accounts.oauth2.revoke(token,()=>{});
+ status('#google-status','Disconnected. Calendar event data cleared from this page.');renderEvents();
+}
+$('#google-connect').onclick=googleConnect;$('#google-refresh').onclick=refreshGoogle;$('#google-disconnect').onclick=disconnectGoogle;
+function unfoldIcs(source){
+ // Line folding as specified by iCalendar: a space or tab after CRLF continues the prior line.
+ return source.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');
+}
+function parseICS(source){
+ if(source.length>1024*1024)throw Error('Choose an ICS file smaller than 1 MB.');
+ const text=unfoldIcs(source),blocks=text.split('BEGIN:VEVENT').slice(1);if(blocks.length>500)throw Error('Too many events; maximum 500.');
+ const events=[];for(const section of blocks){const block=section.split('END:VEVENT')[0]||'';const lines=block.split(/\r?\n/);const get=key=>{const row=lines.find(line=>line.toUpperCase().startsWith(key+';')||line.toUpperCase().startsWith(key+':'));return row?row.substring(row.indexOf(':')+1).trim():''};
+ const raw=get('DTSTART'),title=get('SUMMARY').replace(/\\n/gi,' ').replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\\\/g,'\\');
+ if(!raw)continue;
+ let start='';
+ const m=raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);
+ if(m){start=m[1]+'-'+m[2]+'-'+m[3]+(m[4]?'T'+m[4]+':'+m[5]+':'+(m[6]||'00')+(m[7]?'Z':''):'T12:00:00')}
+ if(start)events.push(eventEntry(title||'Imported event',start,'Imported .ics'));
+ }return events;
+}
+$('#ics-file').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>1024*1024)throw Error('File exceeds 1 MB.');importEvents=parseICS(await file.text());status('#ics-status',importEvents.length+' event(s) imported for this page session.');renderEvents()}catch(err){status('#ics-status',err.message,true)}finally{e.target.value=''}};
+$('#ics-clear').onclick=()=>{importEvents=[];status('#ics-status','Imported events cleared.');renderEvents()};
+async function fetchWeather(){
+ if(!coords){status('#weather-status','Choose Allow location first.',true);return}
+ try{
+  const q=new URLSearchParams({latitude:String(coords.latitude),longitude:String(coords.longitude),current:'temperature_2m,relative_humidity_2m,precipitation,weather_code',temperature_unit:'fahrenheit',timezone:'auto'});
+  const res=await fetch('https://api.open-meteo.com/v1/forecast?'+q);if(!res.ok)throw Error('Weather provider unavailable ('+res.status+').');
+  const weather=await res.json();const c=weather.current;if(!c)throw Error('Weather service returned no conditions.');
+  status('#weather-status',Math.round(c.temperature_2m)+'°F · humidity '+c.relative_humidity_2m+'% · precipitation '+c.precipitation+' mm · updated '+dateText(c.time)+' (provider local time).');
+ }catch(e){status('#weather-status',e.message,true)}
+}
+$('#weather-get').onclick=()=>{if(!navigator.geolocation){status('#weather-status','Geolocation unsupported.',true);return}status('#weather-status','Requesting your browser location permission…');navigator.geolocation.getCurrentPosition(async p=>{coords={latitude:p.coords.latitude,longitude:p.coords.longitude};$('#weather-refresh').disabled=false;await fetchWeather()},e=>status('#weather-status','Location not available: '+e.message,true),{enableHighAccuracy:false,timeout:10000,maximumAge:600000})};
+$('#weather-refresh').onclick=fetchWeather;
+$('#weather-clear').onclick=()=>{coords=null;$('#weather-refresh').disabled=true;status('#weather-status','Location cleared from this page session.')};
+window.addEventListener('pagehide',()=>{googleToken=null;coords=null});
+getUser().catch(e=>{const el=$('#auth-status');el.textContent=e.message;el.className='notice error'});
+</script></body></html>
