@@ -37,3 +37,16 @@ Open `index.html` in a modern browser. No installation or build step is required
 ## Host using GitHub Pages
 
 In GitHub, visit **Settings → Pages**, select **Deploy from a branch**, choose **main** and **/(root)**, then save. Pages deployment is not managed by this repository commit; availability depends on your GitHub settings. Public GitHub Pages would make this prototype available publicly. It is not suitable for storing sensitive data.
+
+## Supabase account portal setup
+
+1. Open Supabase SQL Editor and run `supabase/001_foundation.sql` in your project. This creates profiles, personal workspaces, inventory/reminder tables and RLS policies.
+2. In Supabase project settings, copy the **Project URL** and the **publishable** API key into `supabase-config.js` (never a secret or service-role key).
+3. In Supabase Authentication → URL Configuration, set the Site URL to your deployed site and allow the exact redirect URL ending in `/auth.html`.
+4. Enable email confirmation under Authentication. Confirm your email after registration.
+5. Publish with GitHub Pages and open `auth.html`. Newly registered accounts receive one personal workspace automatically.
+6. Before creating real accounts, verify RLS using two test users: neither should be able to read or update the other's workspace rows.
+
+**Security boundary:** `auth.html` handles actual Supabase registration/sign-in only after configuration. The original `index.html` still runs as a **legacy, local-only prototype** and is NOT protected by Supabase. Do not put sensitive data there. Business registration/verification, account-to-inventory sync, and admin controls have not been implemented. Password complexity checks in the registration UI are supplemental client-side checks, not server-side enforcement; enforce password policies in Supabase Auth settings / trusted backend before production. Supabase's email sending limits may apply.
+
+Ensure Data API privileges for RLS-secured tables: grant SELECT on profiles, workspaces, memberships and SELECT/INSERT/UPDATE/DELETE on inventory_items and reminders to authenticated, then test under RLS. Do not grant workspace/membership write permissions to browser roles.
