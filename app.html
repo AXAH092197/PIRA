@@ -8,7 +8,7 @@
 <section class="page" id="dashboard"><div class="hero"><h2>Welcome to your Personal Workspace</h2><p>Track essentials, monitor low stock and stay ahead of reminders.</p></div><div class="stats"><div class="card"><span class="muted">Inventory items</span><div class="metric" id="count-items">0</div></div><div class="card"><span class="muted">Total quantity</span><div class="metric" id="count-quantity">0</div></div><div class="card"><span class="muted">Low stock</span><div class="metric" id="count-low">0</div></div><div class="card"><span class="muted">Pending reminders</span><div class="metric" id="count-reminders">0</div></div></div><div class="section-head"><h2>Recent inventory</h2><button class="btn light" data-page="inventory">View inventory</button></div><div class="card table-scroll" id="recent-items"></div></section>
 <section class="page hide" id="inventory"><div class="section-head"><h2>Inventory management</h2><button class="btn" id="add-item">+ Add item</button></div><div class="toolbar"><input class="field" id="search" placeholder="Search name, category, location" aria-label="Search inventory"><select class="field" id="category" aria-label="Filter category"><option value="">All categories</option></select><button class="btn light" id="export-items">Export CSV</button></div><div class="card table-scroll" style="margin-top:15px" id="items-table"></div></section>
 <section class="page hide" id="reminders"><div class="section-head"><h2>Reminders</h2><button class="btn" id="add-reminder">+ New reminder</button></div><button class="btn light" id="export-reminders">Export CSV</button><div class="card table-scroll" style="margin-top:15px" id="reminders-table"></div></section>
-<section class="page hide" id="copilot"><div class="section-head"><h2>PIRA Copilot</h2></div><div class="card"><p class="muted">Answers based on records loaded from your authorized workspace. This is a local rules-based assistant, not hosted AI.</p><div class="ask"><input id="question" class="field" placeholder="Ask about stock, totals or reminders"><button id="ask" class="btn">Ask PIRA</button></div><p role="status" id="answer"></p></div></section>
+<section class="page hide" id="copilot"><div class="section-head"><h2>PIRA Copilot</h2></div><div class="card"><p class="muted">Ask naturally about quantities, item locations, categories, low stock, values and reminders. Answers use only your authorized workspace data; this is a local intent-based assistant, not a generative AI service.</p><div class="ask"><input id="question" class="field" placeholder="Ask about stock, totals or reminders"><button id="ask" class="btn">Ask PIRA</button></div><p role="status" id="answer"></p></div></section>
 <section class="page hide" id="settings"><div class="section-head"><h2>Account &amp; workspace</h2></div><div class="card"><div class="setting"><strong id="account">Account</strong></div><div class="setting"><strong id="work-name">Personal Workspace</strong><p class="muted">Workspace access is determined by your Supabase membership and server RLS policies.</p></div><div class="setting"><button class="btn light" id="download-all">Export inventory and reminders CSV</button></div><div class="setting"><p class="muted">The legacy browser-only demo is separate. No automatic migration or synchronization has been performed.</p><a href="./index.html">Open legacy local demo</a></div></div></section></div></main></div>
 <dialog id="editor" aria-labelledby="editor-title"><h2 id="editor-title">Add record</h2><form id="edit-form"><div class="form-grid" id="editor-fields"></div><p id="editor-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn light" id="cancel">Cancel</button><button type="submit" class="btn" id="save">Save</button></div></form></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script type="module">
@@ -33,7 +33,63 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
 $('#add-item').onclick=()=>edit('item');$('#add-reminder').onclick=()=>edit('reminder');$('#cancel').onclick=()=>$('#editor').close();$('#search').oninput=filterInventory;$('#category').onchange=filterInventory;$('#refresh').onclick=()=>load().catch(e=>message(e.message,true));
 function exportCSV(type){const cols=type==='item'?['name','category','quantity','minimum','location','price']:['title','due','done'];const rows=type==='item'?items:reminders;const csv=[cols,...rows.map(r=>cols.map(c=>r[c]??''))].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='pira-personal-'+(type==='item'?'inventory':'reminders')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 $('#export-items').onclick=()=>exportCSV('item');$('#export-reminders').onclick=()=>exportCSV('reminder');$('#download-all').onclick=()=>{exportCSV('item');exportCSV('reminder')};
-$('#ask').onclick=()=>{const q=$('#question').value.toLowerCase();let a='Ask me about inventory totals, low stock, inventory value or upcoming reminders.';if(/low|reorder/.test(q))a=items.filter(x=>Number(x.quantity)<=Number(x.minimum)).map(x=>x.name+' ('+x.quantity+' left)').join(', ')||'No low-stock items.';else if(/remind|upcoming|due/.test(q))a=reminders.filter(x=>!x.done).map(x=>x.title+' due '+x.due).join('; ')||'No pending reminders.';else if(/worth|value|cost/.test(q))a='Estimated inventory value: '+money(items.reduce((s,x)=>s+Number(x.quantity)*Number(x.price),0));else if(/quantit|units/.test(q))a='Tracked units: '+items.reduce((s,x)=>s+Number(x.quantity),0);else if(/item|inventory|how many/.test(q))a='Distinct inventory records: '+items.length;$('#answer').textContent=a};
+// Local natural-language intent matching. No prompts or inventory content leave the browser for AI processing.
+const normalizeQuestion=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const whole=(phrase,text)=>(' '+text+' ').includes(' '+phrase+' ');
+function copilotReply(question){
+ const q=normalizeQuestion(question);
+ if(!q)return 'Type a question, for example: What am I running low on?';
+ const intent=(...terms)=>terms.some(t=>whole(t,q));
+ const sortedItems=[...items].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+ const stockLow=items.filter(x=>Number(x.quantity)<=Number(x.minimum));
+ const quantity=rows=>rows.reduce((sum,x)=>sum+Number(x.quantity||0),0);
+ const inventoryValue=rows=>rows.reduce((sum,x)=>sum+Number(x.quantity||0)*Number(x.price||0),0);
+ const formatList=(rows,formatter)=>rows.slice(0,12).map(formatter).join('; ')+(rows.length>12?'; and '+(rows.length-12)+' more.':'');
+ const relevant=items.filter(x=>{
+   const name=normalizeQuestion(x.name),category=normalizeQuestion(x.category),location=normalizeQuestion(x.location);
+   return (name&&whole(name,q))||(category&&whole(category,q))||(location&&whole(location,q));
+ });
+ const stockQuestion=intent('how much','how many','quantity','quantities','left','remaining','in stock','available','have','do we have','do i have','stock level','levels');
+ const locationQuestion=intent('where','located','location','stored','find');
+ const priceQuestion=intent('price','priced','cost per','unit price','unit cost');
+ const valueQuestion=intent('worth','value','valuation','total cost','total price','money tied up');
+ const lowQuestion=intent('low','running out','almost out','nearly out','short on','need restock','need to restock','reorder','replenish','below minimum','out of stock');
+ const reminderQuestion=intent('reminder','reminders','task','tasks','due','deadline','schedule','scheduled','to do','todo','upcoming','overdue','coming up','what is next','what s next');
+ const countQuestion=intent('how many','number of','count','total','amount of','how much','how much inventory','inventory size');
+ const listQuestion=intent('list','show','display','which','what items','what products','tell me about','details');
+ if(relevant.length){
+   if(locationQuestion)return formatList(relevant,x=>x.name+' is stored at '+(x.location||'an unspecified location'))+'.';
+   if(priceQuestion)return formatList(relevant,x=>x.name+': '+money(x.price)+' per unit')+'.';
+   if(valueQuestion)return 'Current estimated value of matching inventory: '+money(inventoryValue(relevant))+'.';
+   if(lowQuestion)return formatList(relevant,x=>x.name+': '+x.quantity+' left (minimum '+x.minimum+')'+(Number(x.quantity)<=Number(x.minimum)?' — low stock':' — above threshold'))+'.';
+   if(stockQuestion||countQuestion)return formatList(relevant,x=>x.name+': '+x.quantity+' unit(s) available')+'.';
+   return formatList(relevant,x=>x.name+' — '+x.quantity+' units, '+money(x.price)+' each'+(x.location?', at '+x.location:''))+'.';
+ }
+ if(reminderQuestion){
+   const pending=reminders.filter(x=>!x.done);
+   if(intent('overdue','past due','late')){
+     const today=new Date().toLocaleDateString('en-CA');
+     const overdue=pending.filter(x=>x.due<today);
+     return overdue.length?'Overdue reminders: '+formatList(overdue,x=>x.title+' (due '+x.due+')')+'.':'No overdue reminders.';
+   }
+   if(intent('how many','count','number','total'))return 'You have '+pending.length+' pending reminder(s) out of '+reminders.length+' total.';
+   return pending.length?'Pending reminders: '+formatList(pending,x=>x.title+' (due '+x.due+')')+'.':'No pending reminders.';
+ }
+ if(lowQuestion)return stockLow.length?'Low-stock items: '+formatList(stockLow,x=>x.name+' ('+x.quantity+' remaining; minimum '+x.minimum+')')+'.':'All items are above their minimum stock thresholds.';
+ if(valueQuestion)return 'Estimated total inventory value: '+money(inventoryValue(items))+'. This uses your recorded unit values.';
+ if(intent('recent','recently added','latest','newest','last added'))return sortedItems.length?'Recently added: '+formatList(sortedItems.slice(0,5),x=>x.name+' ('+x.quantity+' units)')+'.':'No inventory items recorded yet.';
+ if(intent('category','categories','types','groups','grouped')){
+   const categories=[...new Set(items.map(x=>x.category).filter(Boolean))];
+   return categories.length?'Your inventory categories are: '+categories.join(', ')+'.':'No categories have been assigned yet.';
+ }
+ if(intent('quantity','quantities','units','pieces')|| (countQuestion&&intent('units','stock','supplies')))return 'Total units across your inventory: '+quantity(items)+'.';
+ if(countQuestion||intent('inventory','items','products','supplies','everything i own','what do i have')){
+   if(listQuestion&&!countQuestion)return items.length?'Inventory items: '+formatList(items,x=>x.name+' ('+x.quantity+' units)')+'.':'Your inventory is currently empty.';
+   return 'You have '+items.length+' distinct inventory records and '+quantity(items)+' total units.';
+ }
+ return 'I could not determine what you want to know. Try asking: “What am I running low on?”, “How many units do I have?”, “Where is [item name] stored?”, “What is my inventory worth?”, or “What reminders are due?”';
+}
+$('#ask').onclick=()=>{$('#answer').textContent=copilotReply($('#question').value)};
 $('#question').onkeydown=e=>{if(e.key==='Enter')$('#ask').click()};
 $('#logout').onclick=async()=>{const {error}=await client.auth.signOut();if(error)message(error.message,true);else location.replace('./auth.html')};
 async function start(){try{if(!client)throw Error('Supabase SDK unavailable.');const {data,error}=await client.auth.getUser();if(error||!data.user){location.replace('./auth.html');return}user=data.user;$('#account').textContent=user.email||'Account';const r=await client.from('memberships').select('role,workspaces(id,name,kind)').eq('user_id',user.id);if(r.error)throw r.error;const own=(r.data||[]).find(x=>x.workspaces?.kind==='personal');if(!own)throw Error('No Personal workspace membership is accessible.');workspace=own.workspaces;$('#work-name').textContent=workspace.name+' ('+own.role+')';$('#subtitle').textContent=workspace.name+' · '+(user.email||'Signed in');await load()}catch(err){message(err.message||'Unable to load workspace.',true);$('#notice').textContent='Workspace unavailable. Your account may be signed in, but data access has not been verified.'}}
